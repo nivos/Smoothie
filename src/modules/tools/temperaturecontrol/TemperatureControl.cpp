@@ -110,8 +110,8 @@ void TemperatureControl::on_config_reload(void* argument){
 
     // PID
     this->p_factor = this->kernel->config->value(temperature_control_checksum, this->name_checksum, p_factor_checksum)->by_default(10 )->as_number();
-    this->i_factor = this->kernel->config->value(temperature_control_checksum, this->name_checksum, i_factor_checksum)->by_default(0.3)->as_number();
-    this->d_factor = this->kernel->config->value(temperature_control_checksum, this->name_checksum, d_factor_checksum)->by_default(200)->as_number();
+    this->i_factor = this->kernel->config->value(temperature_control_checksum, this->name_checksum, i_factor_checksum)->by_default(0.3)->as_number() / this->readings_per_second;
+    this->d_factor = this->kernel->config->value(temperature_control_checksum, this->name_checksum, d_factor_checksum)->by_default(200)->as_number() * this->readings_per_second;
     this->i_max    = this->kernel->config->value(temperature_control_checksum, this->name_checksum, i_max_checksum   )->by_default(255)->as_number();
     this->i = 0.0;
     this->last_reading = 0.0;
@@ -135,13 +135,13 @@ void TemperatureControl::on_gcode_received(void* argument){
                 if (gcode->has_letter('P'))
                     this->p_factor = gcode->get_value('P');
                 if (gcode->has_letter('I'))
-                    this->i_factor = gcode->get_value('I');
+                    this->i_factor = gcode->get_value('I') / this->readings_per_second;
                 if (gcode->has_letter('D'))
-                    this->d_factor = gcode->get_value('D');
+                    this->d_factor = gcode->get_value('D') * this->readings_per_second;
                 if (gcode->has_letter('X'))
                     this->i_max    = gcode->get_value('X');
             }
-            gcode->stream->printf("%s(S%d): Pf:%g If:%g Df:%g X(I_max):%g Pv:%g Iv:%g Dv:%g O:%d\n", this->designator.c_str(), this->pool_index, this->p_factor, this->i_factor, this->d_factor, this->i_max, this->p, this->i, this->d, o);
+            gcode->stream->printf("%s(S%d): Pf:%g If:%g Df:%g X(I_max):%g Pv:%g Iv:%g Dv:%g O:%d\n", this->designator.c_str(), this->pool_index, this->p_factor, this->i_factor * this->readings_per_second, this->d_factor / this->readings_per_second, this->i_max, this->p, this->i, this->d, o);
         }
         if (gcode->m == 303)
         {
