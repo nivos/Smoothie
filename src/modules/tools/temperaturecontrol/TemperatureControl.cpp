@@ -224,7 +224,14 @@ double TemperatureControl::adc_value_to_temperature(int adc_value)
     double r = r2 / ((4095.0 / adc_value) - 1.0);
     if (r1 > 0)
         r = (r1 * r) / (r1 - r);
-    return (1.0 / (k + (j * log(r / r0)))) - 273.15;
+    r = (1.0 / (k + (j * log(r / r0)))) - 273.15;
+    if (r > 1000.0)
+        r = 1000.0;
+    if (r < 0.0)
+        r = 0.0;
+    if (r != r) // test for NaN
+        r = 0.0;
+    return r;
 }
 
 uint32_t TemperatureControl::thermistor_read_tick(uint32_t dummy){
@@ -272,6 +279,8 @@ void TemperatureControl::pid_process(double temperature)
         i = this->i_max;
     if (i < -this->i_max)
         i = -this->i_max;
+    if (i != i) // test for NaN
+        i = 0.0;
 
     this->o = (p + i + d) * heater_pin.max_pwm() / 256;
 
