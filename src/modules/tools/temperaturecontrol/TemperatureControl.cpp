@@ -246,6 +246,11 @@ uint32_t TemperatureControl::thermistor_read_tick(uint32_t dummy){
             this->min_temp_violated = true;
             target_temperature = UNDEFINED;
             heater_pin.set(0);
+            if (waiting)
+            {
+                kernel->pauser->release();
+                waiting = false;
+            }
         }
         else
         {
