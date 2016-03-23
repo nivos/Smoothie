@@ -76,12 +76,42 @@ MRI_INIT_PARAMETERS=$(MRI_UART)
 OUTDIR=../$(DEVICE)
 
 # List of sources to be compiled/assembled
-CSRCS = $(wildcard $(SRC)/*.c $(SRC)/*/*.c $(SRC)/*/*/*.c $(SRC)/*/*/*/*.c $(SRC)/*/*/*/*/*.c $(SRC)/*/*/*/*/*/*.c)
+CSRCS1 = $(wildcard $(SRC)/*.c $(SRC)/*/*.c $(SRC)/*/*/*.c $(SRC)/*/*/*/*.c $(SRC)/*/*/*/*/*.c $(SRC)/*/*/*/*/*/*.c)
+# Totally exclude network if NONETWORK is defined
+ifeq "$(NONETWORK)" "1"
+CSRCS2 = $(filter-out $(SRC)/libs/Network/%,$(CSRCS1))
+DEFINES += -DNONETWORK
+else
+CSRCS2 = $(CSRCS1)
+endif
+
+# do not compile the src/testframework as that can only be done with rake
+CSRCS = $(filter-out $(SRC)/testframework/%,$(CSRCS2))
+
+ifeq "$(DISABLEMSD)" "1"
+DEFINES += -DDISABLEMSD
+endif
+
 ASRCS =  $(wildcard $(SRC)/*.S $(SRC)/*/*.S $(SRC)/*/*/*.S $(SRC)/*/*/*/*.S $(SRC)/*/*/*/*/*.S)
 ifneq "$(OS)" "Windows_NT"
 ASRCS +=  $(wildcard $(SRC)/*.s $(SRC)/*/*.s $(SRC)/*/*/*.s $(SRC)/*/*/*/*.s $(SRC)/*/*/*/*/*.s)
 endif
-CPPSRCS = $(wildcard $(SRC)/*.cpp $(SRC)/*/*.cpp $(SRC)/*/*/*.cpp $(SRC)/*/*/*/*.cpp $(SRC)/*/*/*/*/*.cpp $(SRC)/*/*/*/*/*/*.cpp)
+CPPSRCS1 = $(wildcard $(SRC)/*.cpp $(SRC)/*/*.cpp $(SRC)/*/*/*.cpp $(SRC)/*/*/*/*.cpp $(SRC)/*/*/*/*/*.cpp $(SRC)/*/*/*/*/*/*.cpp)
+ifeq "$(NONETWORK)" "1"
+CPPSRCS2 = $(filter-out $(SRC)/libs/Network/%,$(CPPSRCS1))
+else
+CPPSRCS2 = $(CPPSRCS1)
+endif
+
+# Totally exclude any modules listed in EXCLUDE_MODULES
+# uppercase function
+uc = $(subst a,A,$(subst b,B,$(subst c,C,$(subst d,D,$(subst e,E,$(subst f,F,$(subst g,G,$(subst h,H,$(subst i,I,$(subst j,J,$(subst k,K,$(subst l,L,$(subst m,M,$(subst n,N,$(subst o,O,$(subst p,P,$(subst q,Q,$(subst r,R,$(subst s,S,$(subst t,T,$(subst u,U,$(subst v,V,$(subst w,W,$(subst x,X,$(subst y,Y,$(subst z,Z,$1))))))))))))))))))))))))))
+EXL = $(patsubst %,$(SRC)/modules/%/%,$(EXCLUDED_MODULES))
+CPPSRCS3 = $(filter-out $(EXL),$(CPPSRCS2))
+DEFINES += $(call uc, $(subst /,_,$(patsubst %,-DNO_%,$(EXCLUDED_MODULES))))
+
+# do not compile the src/testframework as that can only be done with rake
+CPPSRCS = $(filter-out $(SRC)/testframework/%,$(CPPSRCS3))
 
 # List of the objects files to be compiled/assembled
 OBJECTS = $(patsubst %.c,$(OUTDIR)/%.o,$(CSRCS)) $(patsubst %.s,$(OUTDIR)/%.o,$(patsubst %.S,$(OUTDIR)/%.o,$(ASRCS))) $(patsubst %.cpp,$(OUTDIR)/%.o,$(CPPSRCS))
@@ -118,7 +148,8 @@ endif
 
 # Libraries to be linked into final binary
 MBED_LIBS = $(MBED_DIR)/$(DEVICE)/GCC_ARM/libmbed.a
-SYS_LIBS = -lstdc++_s -lsupc++_s -lm -lgcc -lc_s -lgcc -lc_s -lnosys
+#SYS_LIBS = -lstdc++_s -lsupc++_s -lm -lgcc -lc_s -lgcc -lc_s -lnosys
+SYS_LIBS = -specs=nano.specs -lstdc++ -lsupc++ -lm -lgcc -lc -lnosys
 LIBS = $(LIBS_PREFIX)
 
 ifeq "$(MRI_ENABLE)" "1"

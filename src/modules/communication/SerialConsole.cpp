@@ -15,6 +15,7 @@ using std::string;
 #include "libs/RingBuffer.h"
 #include "libs/SerialMessage.h"
 #include "libs/StreamOutput.h"
+#include "libs/StreamOutputPool.h"
 
 // Serial reading module
 // Treats every received line as a command and passes it ( via event call ) to the command dispatcher.
@@ -28,21 +29,44 @@ SerialConsole::SerialConsole( PinName rx_pin, PinName tx_pin, int baud_rate ){
 void SerialConsole::on_module_loaded() {
     // We want to be called every time a new char is received
     this->serial->attach(this, &SerialConsole::on_serial_char_received, mbed::Serial::RxIrq);
+    query_flag= false;
+    halt_flag= false;
 
     // We only call the command dispatcher in the main loop, nowhere else
     this->register_for_event(ON_MAIN_LOOP);
+    this->register_for_event(ON_IDLE);
 
     // Add to the pack of streams kernel can call to, for example for broadcasting
-    this->kernel->streams->append_stream(this);
+    THEKERNEL->streams->append_stream(this);
 }
 
 // Called on Serial::RxIrq interrupt, meaning we have received a char
 void SerialConsole::on_serial_char_received(){
     while(this->serial->readable()){
         char received = this->serial->getc();
+        if(received == '?') {
+            query_flag= true;
+            continue;
+        }
+        if(received == 'X'-'A') { // ^X
+            halt_flag= true;
+            continue;
+        }
         // convert CR to NL (for host OSs that don't send NL)
         if( received == '\r' ){ received = '\n'; }
         this->buffer.push_back(received);
+    }
+}
+
+void SerialConsole::on_idle(void * argument)
+{
+    if(query_flag) {
+        query_flag= false;
+        puts(THEKERNEL->get_query_string().c_str());
+    }
+    if(halt_flag) {
+        halt_flag= false;
+        THEKERNEL->call_event(ON_HALT, nullptr);
     }
 }
 
@@ -58,7 +82,7 @@ void SerialConsole::on_main_loop(void * argument){
                 struct SerialMessage message;
                 message.message = received;
                 message.stream = this;
-                this->kernel->call_event(ON_CONSOLE_LINE_RECEIVED, &message );
+                THEKERNEL->call_event(ON_CONSOLE_LINE_RECEIVED, &message );
                 return;
             }else{
                 received += c;
@@ -85,8 +109,8 @@ int SerialConsole::_getc()
 
 // Does the queue have a given char ?
 bool SerialConsole::has_char(char letter){
-    int index = this->buffer.head;
-    while( index != this->buffer.tail ){
+    int index = this->buffer.tail;
+    while( index != this->buffer.head ){
         if( this->buffer.buffer[index] == letter ){
             return true;
         }

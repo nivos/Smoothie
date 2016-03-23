@@ -9,30 +9,56 @@
 #define CONVEYOR_H
 
 #include "libs/Module.h"
-#include "libs/Kernel.h"
+#include "HeapRing.h"
+
 using namespace std;
 #include <string>
 #include <vector>
 
-class Conveyor : public Module {
-    public:
-        Conveyor();
+class Gcode;
+class Block;
 
-        void on_module_loaded(void);
-        void on_idle(void*);
+class Conveyor : public Module
+{
+public:
+    Conveyor();
 
-        Block* new_block();
-        void new_block_added();
-        void pop_and_process_new_block(int debug);
-        void wait_for_queue(int free_blocks);
-        void wait_for_empty_queue();
-        bool is_queue_empty();
+    void on_module_loaded(void);
+    void on_idle(void *);
+    void on_main_loop(void *);
+    void on_block_end(void *);
+    void on_halt(void *);
+    void on_config_reload(void *);
 
-        RingBuffer<Block,16> queue;  // Queue of Blocks
-        Block* current_block;
-        bool looking_for_new_block;
+    void notify_block_finished(Block *);
 
-        volatile int flush_blocks;
+    void wait_for_empty_queue();
+    bool is_queue_empty() { return queue.is_empty(); };
+    bool is_queue_full() { return queue.is_full(); };
+
+    void ensure_running(void);
+
+    void append_gcode(Gcode *);
+    void queue_head_block(void);
+
+    void dump_queue(void);
+    void flush_queue(void);
+    bool is_flushing() const { return flush; }
+
+    friend class Planner; // for queue
+
+private:
+    typedef HeapRing<Block> Queue_t;
+
+    Queue_t queue;  // Queue of Blocks
+    volatile unsigned int gc_pending;
+
+    struct {
+        volatile bool running:1;
+        volatile bool flush:1;
+        volatile bool halted:1;
+    };
+
 };
 
 #endif // CONVEYOR_H

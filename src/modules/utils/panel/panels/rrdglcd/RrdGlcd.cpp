@@ -1,6 +1,7 @@
 #include "RrdGlcd.h"
 
-#include "ahbmalloc.h"
+#include "platform_memory.h"
+#include "StreamOutputPool.h"
 
 static const uint8_t font5x8[] = {
     // 5x8 font each byte is consecutive x bits left aligned then each subsequent byte is Y 8 bytes per character
@@ -146,12 +147,22 @@ static const uint8_t font5x8[] = {
 #define HEIGHT 64
 #define FB_SIZE WIDTH*HEIGHT/8
 
-RrdGlcd::RrdGlcd(PinName mosi, PinName sclk, Pin cs) {
-    this->spi= new mbed::SPI(mosi, NC, sclk);
-     //chip select
+RrdGlcd::RrdGlcd(int spi_channel, Pin cs) {
+    PinName mosi, miso, sclk;
+    if(spi_channel == 0) {
+        mosi = P0_18; miso = P0_17; sclk = P0_15;
+    } else if(spi_channel == 1) {
+        mosi = P0_9; miso = P0_8; sclk = P0_7;
+    } else {
+        mosi = P0_18; miso = P0_17; sclk = P0_15;
+    }
+
+    this->spi = new mbed::SPI(mosi, miso, sclk);
+
+    //chip select
     this->cs= cs;
     this->cs.set(0);
-    fb= (uint8_t *)ahbmalloc(FB_SIZE, AHB_BANK_0); // grab some memoery from USB_RAM
+    fb= (uint8_t *)AHB0.alloc(FB_SIZE); // grab some memoery from USB_RAM
     if(fb == NULL) {
         THEKERNEL->streams->printf("Not enough memory available for frame buffer");
     }
@@ -161,7 +172,7 @@ RrdGlcd::RrdGlcd(PinName mosi, PinName sclk, Pin cs) {
 
 RrdGlcd::~RrdGlcd() {
     delete this->spi;
-    ahbfree(fb, FB_SIZE);
+    AHB0.dealloc(fb);
 }
 
 void RrdGlcd::setFrequency(int freq) {

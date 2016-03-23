@@ -7,29 +7,29 @@
 
 #ifndef KERNEL_H
 #define KERNEL_H
-#include "libs/Module.h"
-#include "libs/Config.h"
-#include "libs/SlowTicker.h"
-#include "libs/StreamOutputPool.h"
-#include "libs/StepTicker.h"
-#include "libs/Adc.h"
-#include "libs/Pauser.h"
-#include "libs/PublicData.h"
-#include "modules/communication/SerialConsole.h"
-#include "modules/communication/GcodeDispatch.h"
-#include "modules/tools/toolsmanager/ToolsManager.h"
-#include "modules/robot/Planner.h"
-#include "modules/robot/Robot.h"
-#include "modules/robot/Stepper.h"
-#include <array>
 
 #define THEKERNEL Kernel::instance
+
+#include "Module.h"
+#include <array>
+#include <vector>
+#include <string>
 
 //Module manager
 class Config;
 class Module;
 class Conveyor;
 class SlowTicker;
+class SerialConsole;
+class StreamOutputPool;
+class GcodeDispatch;
+class Robot;
+class Stepper;
+class Planner;
+class StepTicker;
+class Adc;
+class PublicData;
+
 class Kernel {
     public:
         Kernel();
@@ -37,32 +37,41 @@ class Kernel {
         const char* config_override_filename(){ return "/sd/config-override"; }
 
         void add_module(Module* module);
-        void register_for_event(_EVENT_ENUM id_event, Module* module);
-        void call_event(_EVENT_ENUM id_event);
-        void call_event(_EVENT_ENUM id_event, void * argument);
+        void register_for_event(_EVENT_ENUM id_event, Module *module);
+        void call_event(_EVENT_ENUM id_event, void * argument= nullptr);
 
-        // These modules are aviable to all other modules
+        bool kernel_has_event(_EVENT_ENUM id_event, Module *mod);
+        void unregister_for_event(_EVENT_ENUM id_event, Module *module);
+
+        bool is_using_leds() const { return use_leds; }
+        bool is_halted() const { return halted; }
+        std::string get_query_string();
+
+        // These modules are available to all other modules
         SerialConsole*    serial;
         StreamOutputPool* streams;
 
-        GcodeDispatch*    gcode_dispatch;
         Robot*            robot;
         Stepper*          stepper;
         Planner*          planner;
         Config*           config;
         Conveyor*         conveyor;
-        Pauser*           pauser;
-        ToolsManager*     toolsmanager;
 
         int debug;
         SlowTicker*       slow_ticker;
         StepTicker*       step_ticker;
         Adc*              adc;
-        PublicData*       public_data;
-        bool              use_leds;
+        std::string       current_path;
+        uint32_t          base_stepping_frequency;
+        uint32_t          acceleration_ticks_per_second;
 
     private:
-        std::array<std::vector<Module*>, NUMBER_OF_DEFINED_EVENTS> hooks; // When a module asks to be called for a specific event ( a hook ), this is where that request is remembered
+        // When a module asks to be called for a specific event ( a hook ), this is where that request is remembered
+        std::array<std::vector<Module*>, NUMBER_OF_DEFINED_EVENTS> hooks;
+        struct {
+            bool use_leds:1;
+            bool halted:1;
+        };
 
 };
 

@@ -10,33 +10,41 @@
 
 #include "PanelScreen.h"
 
+#include <tuple>
+
 class WatchScreen : public PanelScreen
 {
 public:
     WatchScreen();
+    ~WatchScreen();
     void on_refresh();
     void on_enter();
     void on_main_loop();
     void display_menu_line(uint16_t line);
 
 private:
-    void get_temp_data();
-    double get_current_speed();
+    void get_current_status();
+    float get_current_speed();
     void set_speed();
-    void get_current_pos(double *cp);
+    void get_current_pos(float *cp);
     void get_sd_play_info();
     const char *get_status();
+    const char *get_network();
 
-    bool speed_changed;
-    bool issue_change_speed;
-    int hotendtemp;
-    int hotendtarget;
-    int bedtemp;
-    int bedtarget;
+    std::vector<uint16_t> temp_controllers;
+
+    uint32_t update_counts;
     int current_speed;
-    double pos[3];
+    float pos[3];
     unsigned long elapsed_time;
     unsigned int sd_pcnt_played;
+    char *ipstr;
+
+    struct {
+        bool speed_changed:1;
+        bool issue_change_speed:1;
+        bool fan_state:1;
+    };
 };
 
 #endif

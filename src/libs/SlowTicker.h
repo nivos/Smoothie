@@ -10,13 +10,12 @@
 #ifndef SLOWTICKER_H
 #define SLOWTICKER_H
 
+#include "Module.h"
+
 using namespace std;
 #include <vector>
-#include "libs/nuts_bolts.h"
-#include "libs/Module.h"
-#include "libs/Kernel.h"
-#include "libs/Hook.h"
 
+#include "libs/Hook.h"
 #include "libs/Pin.h"
 
 #include "system_LPC17xx.h" // for SystemCoreClock
@@ -28,33 +27,34 @@ class SlowTicker : public Module{
 
         void on_module_loaded(void);
         void on_idle(void*);
-        void on_gcode_received(void*);
-        void on_gcode_execute(void*);
 
         void set_frequency( int frequency );
         void tick();
         // For some reason this can't go in the .cpp, see :  http://mbed.org/forum/mbed/topic/2774/?page=1#comment-14221
+        // TODO replace this with std::function()
         template<typename T> Hook* attach( uint32_t frequency, T *optr, uint32_t ( T::*fptr )( uint32_t ) ){
             Hook* hook = new Hook();
-            hook->interval = int(floor((SystemCoreClock/4)/frequency));
+            hook->interval = floorf((SystemCoreClock/4)/frequency);
             hook->attach(optr, fptr);
             hook->countdown = hook->interval;
+
+            // to avoid race conditions we must stop the interupts before updating this non thread safe vector
+            __disable_irq();
             if( frequency > this->max_frequency ){
                 this->max_frequency = frequency;
                 this->set_frequency(frequency);
             }
             this->hooks.push_back(hook);
+            __enable_irq();
             return hook;
         }
 
+    private:
         bool flag_1s();
 
         vector<Hook*> hooks;
         uint32_t max_frequency;
         uint32_t interval;
-
-        uint32_t g4_ticks;
-        bool     g4_pause;
 
         Pin ispbtn;
 protected:

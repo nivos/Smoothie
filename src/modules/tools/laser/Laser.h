@@ -9,16 +9,10 @@
 #define LASER_MODULE_H
 
 #include "libs/Module.h"
-#include "libs/Pin.h"
-#include "libs/Kernel.h"
-#include "modules/communication/utils/Gcode.h"
-#include "PwmOut.h" // mbed.h lib
 
-
-#define laser_module_enable_checksum        CHECKSUM("laser_module_enable")
-#define laser_module_pin_checksum           CHECKSUM("laser_module_pin")
-#define laser_module_max_power_checksum     CHECKSUM("laser_module_max_power")
-#define laser_module_tickle_power_checksum  CHECKSUM("laser_module_tickle_power")
+namespace mbed {
+    class PwmOut;
+}
 
 class Laser : public Module{
     public:
@@ -27,16 +21,19 @@ class Laser : public Module{
         void on_module_loaded();
         void on_block_end(void* argument);
         void on_block_begin(void* argument);
-        void on_play(void* argument);
-        void on_pause(void* argument);
         void on_gcode_execute(void* argument);
         void on_speed_change(void* argument);
-        void set_proportional_power();
 
-        mbed::PwmOut*    laser_pin;    // PWM output to regulate the laser power
-        bool             laser_on;     // Laser status
-        float            laser_max_power; // maximum allowed laser power to be output on the pwm pin
-        float            laser_tickle_power; // value used to tickle the laser on moves
+    private:
+        void set_proportional_power();
+        mbed::PwmOut *laser_pin;    // PWM output to regulate the laser power
+        struct {
+            bool laser_on:1;     // Laser status
+            bool laser_inverting:1; // stores whether the pwm period should be inverted
+        };
+        float            laser_maximum_power; // maximum allowed laser power to be output on the pwm pin
+        float            laser_minimum_power; // value used to tickle the laser on moves.  Also minimum value for auto-scaling
+        float            laser_power;     // current laser power
 };
 
 #endif

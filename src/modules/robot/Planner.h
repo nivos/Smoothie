@@ -8,44 +8,30 @@
 #ifndef PLANNER_H
 #define PLANNER_H
 
-#include <vector>
-#include "libs/RingBuffer.h"
-#include "../communication/utils/Gcode.h"
-#include "Block.h"
+class Block;
 
-#define acceleration_checksum       CHECKSUM("acceleration")
-#define max_jerk_checksum           CHECKSUM("max_jerk")
-#define junction_deviation_checksum CHECKSUM("junction_deviation")
+class Planner
+{
+public:
+    Planner();
+    void append_block( float target[], float rate_mm_s, float distance, float unit_vec[] );
+    float max_allowable_speed( float acceleration, float target_velocity, float distance);
+    void recalculate();
+    Block *get_current_block();
+    void cleanup_queue();
+    float get_acceleration() const { return acceleration; }
+    float get_z_acceleration() const { return z_acceleration > 0.0F ? z_acceleration : acceleration; }
 
-// TODO: Get from config
-#define MINIMUM_PLANNER_SPEED 0.0
-using namespace std;
+    friend class Robot; // for acceleration, junction deviation, minimum_planner_speed
 
-
-class Planner : public Module {
-    public:
-        Planner();
-        void append_block( int target[], double feed_rate, double distance, double deltas[] );
-        double max_allowable_speed( double acceleration, double target_velocity, double distance);
-        void recalculate();
-        void reverse_pass();
-        void forward_pass();
-        void recalculate_trapezoids();
-        void dump_queue();
-        Block* get_current_block();
-        void cleanup_queue();
-        void on_module_loaded();
-        void on_config_reload(void* argument);
-
-        int position[3];              // Current position, in steps
-        double previous_unit_vec[3];
-        Block last_deleted_block;     // Item -1 in the queue, TODO: Grbl does not need this, but Smoothie won't work without it, we are probably doing something wrong
-        bool has_deleted_block;       // Flag for above value
-        float previous_nominal_speed;
-
-        double acceleration;          // Setting
-        double junction_deviation;    // Setting
-
+private:
+    void config_load();
+    float previous_unit_vec[3];
+    float acceleration;          // Setting
+    float z_acceleration;        // Setting
+    float junction_deviation;    // Setting
+    float z_junction_deviation;  // Setting
+    float minimum_planner_speed; // Setting
 };
 
 
